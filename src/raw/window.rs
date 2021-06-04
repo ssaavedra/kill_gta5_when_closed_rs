@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 /**
  * CONTAINS CODE FROM https://github.com/DoumanAsh/windows-win-rs UNDER MIT LICENSE
  */
