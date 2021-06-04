@@ -1,10 +1,12 @@
-#![windows_subsystem = "windows"]
 // Use this to prevent the console from appearing
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 
 mod processes;
+mod raw;
 use std::{thread, time};
 use processes::{get_processes_by_name};
+
+const PROCESS_NAME: &str = "gta5.exe";
 
 #[derive(Debug)]
 enum ProgramStatus {
@@ -28,7 +30,7 @@ fn main() {
 
     loop {
         let mut inside_loop = false;
-        get_processes_by_name("gta5.exe", None)
+        get_processes_by_name(PROCESS_NAME, Some(1))
         .into_iter()
         .for_each(|item| {
             inside_loop = true;

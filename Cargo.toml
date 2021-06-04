@@ -9,7 +9,6 @@ build = "build.rs"
 
 [dependencies]
 winapi = { version = "0.3.9", features = ["handleapi", "psapi", "processthreadsapi", "winnt", "winuser"] }
-windows-win = "2.4.0"
 
 [build-dependencies]
 winres = "0.1.11"

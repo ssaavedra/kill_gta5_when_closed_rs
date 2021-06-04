@@ -8,8 +8,7 @@ use winapi::um::winnt::HANDLE;
 use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
 use winapi::um::winnt::PROCESS_TERMINATE;
 use winapi::um::winnt::PROCESS_VM_READ;
-use winapi::um::winuser::SetLastErrorEx;
-use windows_win::raw;
+use crate::raw;
 
 pub struct NamedProcess {
     pub name: String,
@@ -94,27 +93,13 @@ impl NamedProcess {
 
     #[cfg(not(debug_assertions))]
     pub fn kill(self, code: Option<u32>) -> io::Result<()> {
-        // self._inner.terminate(code.unwrap_or(1))
         raw::process::terminate(self.handle, code.unwrap_or(1)).map(|_| {
             mem::drop(self);
         })
     }
 
     pub fn get_main_window(&self) -> Option<Window> {
-        let mut win_h = None;
-
-        unsafe { SetLastErrorEx(0, 0) };
-        raw::window::enum_by_until(None, |h_wnd| {
-            let (pid, _tid) = raw::window::get_thread_process_id(h_wnd);
-            if pid != self.pid {
-                return 1
-            }
-            win_h = Some(h_wnd);
-            0
-        }).ok();
-        unsafe { SetLastErrorEx(0, 0) };
-        
-        win_h.map(|h_wnd| Window { h_wnd })
+        raw::window::get_by_pid(self.pid).ok().flatten().map(|h_wnd| Window { h_wnd })
     }
 }
 
