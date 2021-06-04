@@ -24,8 +24,8 @@ pub struct Window {
 
 impl Window {
     #[cfg(debug_assertions)]
-    pub fn title(&self) -> Option<String> {
-        raw::window::get_text(self.h_wnd).ok()
+    pub fn title(&self) -> io::Result<String> {
+        raw::window::get_text(self.h_wnd)
     }
 }
 

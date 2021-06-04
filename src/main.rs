@@ -3,8 +3,8 @@
 
 mod processes;
 mod raw;
+use processes::get_processes_by_name;
 use std::{thread, time};
-use processes::{get_processes_by_name};
 
 const PROCESS_NAME: &str = "gta5.exe";
 
@@ -14,6 +14,27 @@ enum ProgramStatus {
     StatusDumb,
     StatusClosed,
 }
+
+trait OptionFlatmap<T> {
+    type Item;
+    fn flat_map<U, F, I>(self, f: F) -> Option<U>
+    where
+        Self: Sized,
+        F: FnOnce(T) -> I,
+        I: IntoIterator<Item = U>;
+}
+
+impl<T> OptionFlatmap<T> for Option<T> {
+    type Item = T;
+    fn flat_map<U, F, I>(self, f: F) -> Option<U>
+    where
+        F: FnOnce(T) -> I,
+        I: IntoIterator<Item = U>
+    {
+        self.map(|item| f(item).into_iter().next()).unwrap_or(None)
+    }
+}
+
 
 fn main() {
     #[cfg(debug_assertions)]
@@ -31,43 +52,53 @@ fn main() {
     loop {
         let mut inside_loop = false;
         get_processes_by_name(PROCESS_NAME, Some(1))
-        .into_iter()
-        .for_each(|item| {
-            inside_loop = true;
-            let item_window = item.get_main_window();
+            .into_iter()
+            .for_each(|item| {
+                inside_loop = true;
+                let item_window = item.get_main_window();
 
-            #[cfg(debug_assertions)]
-            let (pid, item_name, item_window_title) = (
-                item.pid,
-                item.name.clone(),
-                item_window.map(|window| window.title()).flatten().unwrap_or(String::new()),
-            );
+                #[cfg(debug_assertions)]
+                let (pid, item_name, item_window_title) = (
+                    item.pid,
+                    item.name.clone(),
+                    item_window
+                        .flat_map(|window: processes::Window| window.title().ok())
+                        .unwrap_or(String::new()),
+                );
 
-
-            if item_window.is_some() {
-                program_status = ProgramStatus::StatusRunning;
-            } else {
-                match program_status {
-                    ProgramStatus::StatusRunning => {
-                        program_status = ProgramStatus::StatusDumb;
-                    },
-                    ProgramStatus::StatusDumb => {
-                        #[cfg(debug_assertions)]
-                        println!("I would kill the process {}", pid);
-                        #[cfg(not(debug_assertions))]
-                        item.kill(None).ok();
-                        program_status = ProgramStatus::StatusClosed;
-                    },
-                    ProgramStatus::StatusClosed  => {
-                        //panic!("This should never happen!");
-                    },
+                if item_window.is_some() {
+                    program_status = ProgramStatus::StatusRunning;
+                } else {
+                    match program_status {
+                        ProgramStatus::StatusRunning => {
+                            program_status = ProgramStatus::StatusDumb;
+                        }
+                        ProgramStatus::StatusDumb => {
+                            #[cfg(debug_assertions)]
+                            println!("I would kill the process {}", pid);
+                            #[cfg(not(debug_assertions))]
+                            item.kill(None).ok();
+                            program_status = ProgramStatus::StatusClosed;
+                        }
+                        ProgramStatus::StatusClosed => {
+                            //panic!("This should never happen!");
+                        }
+                    }
                 }
-            }
-            
-            #[cfg(debug_assertions)]
-            println!("ITEM: {} ({}), has_window? {}, with title {}. Program status is {:?}", item_name, pid, item_window.is_some(), item_window_title, program_status);
-        });
-        if !inside_loop { program_status = ProgramStatus::StatusClosed; }
+
+                #[cfg(debug_assertions)]
+                println!(
+                    "ITEM: {} ({}), has_window? {}, with title {}. Program status is {:?}",
+                    item_name,
+                    pid,
+                    item_window.is_some(),
+                    item_window_title,
+                    program_status
+                );
+            });
+        if !inside_loop {
+            program_status = ProgramStatus::StatusClosed;
+        }
 
         if debug {
             thread::sleep(time::Duration::from_secs(1));
