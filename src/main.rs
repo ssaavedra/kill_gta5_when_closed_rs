@@ -35,7 +35,7 @@ fn main() {
             let (pid, item_name, item_window_title) = (
                 item.pid,
                 item.name.clone(),
-                item.get_main_window_title().unwrap_or(String::new()),
+                item_window.map(|window| window.title()).flatten().unwrap_or(String::new()),
             );
 
 
