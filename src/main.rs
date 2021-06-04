@@ -1,3 +1,7 @@
+#![windows_subsystem = "windows"]
+// Use this to prevent the console from appearing
+#![windows_subsystem = "windows"]
+
 mod processes;
 use std::{thread, time};
 use processes::{get_processes_by_name};
@@ -8,7 +12,6 @@ enum ProgramStatus {
     StatusDumb,
     StatusClosed,
 }
-
 
 fn main() {
     #[cfg(debug_assertions)]
