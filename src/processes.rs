@@ -2,6 +2,7 @@ use std::io;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
+
 use winapi::shared::minwindef::{DWORD, FALSE, HMODULE};
 use winapi::um::psapi::{EnumProcessModules, GetModuleBaseNameA};
 use winapi::um::winnt::HANDLE;
@@ -23,7 +24,7 @@ pub struct Window {
 }
 
 impl Window {
-    #[cfg(debug_assertions)]
+    #[allow(dead_code)]
     pub fn title(&self) -> io::Result<String> {
         raw::window::get_text(self.h_wnd)
     }
@@ -91,7 +92,7 @@ impl NamedProcess {
     }
 
 
-    #[cfg(not(debug_assertions))]
+    #[allow(dead_code)]
     pub fn kill(self, code: Option<u32>) -> io::Result<()> {
         raw::process::terminate(self.handle, code.unwrap_or(1)).map(|_| {
             mem::drop(self);

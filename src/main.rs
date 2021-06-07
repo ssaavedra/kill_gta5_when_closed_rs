@@ -1,12 +1,34 @@
 // Use this to prevent the console from appearing
 // #![windows_subsystem = "windows"]
+extern crate clap;
+extern crate winapi;
 
 mod processes;
 mod raw;
 use processes::get_processes_by_name;
 use std::{thread, time};
 
-const PROCESS_NAME: &str = "gta5.exe";
+use clap::Clap;
+
+const DEFAULT_PROCESS_NAME: &str = "gta5.exe";
+
+#[derive(Clap)]
+#[clap(version = "1.0", author = "Santiago Saavedra")]
+struct CliOpts {
+    #[clap(short, long, env, default_value = DEFAULT_PROCESS_NAME)]
+    process_name: String,
+
+    #[clap(short, parse(from_occurrences))]
+    verbose: i32,
+    
+    #[clap(short = 'n', long)]
+    dry_run: bool,
+
+    #[clap(long)]
+    loop_seconds: Option<u64>,
+}
+
+
 
 #[derive(Debug)]
 enum ProgramStatus {
@@ -36,28 +58,25 @@ impl<T> OptionFlatmap<T> for Option<T> {
 }
 
 
+
+
 fn main() {
-    #[cfg(debug_assertions)]
-    let debug = true;
+    let opts = CliOpts::parse();
 
-    #[cfg(not(debug_assertions))]
-    let debug = false;
-
-    if debug {
-        println!("Running in debug mode.");
+    if opts.verbose > 0 {
+        println!("Running in verbose mode.");
     }
 
     let mut program_status = ProgramStatus::StatusClosed;
 
     loop {
         let mut inside_loop = false;
-        get_processes_by_name(PROCESS_NAME, Some(1))
+        get_processes_by_name(opts.process_name.as_str(), Some(1))
             .into_iter()
             .for_each(|item| {
                 inside_loop = true;
                 let item_window = item.get_main_window();
 
-                #[cfg(debug_assertions)]
                 let (pid, item_name, item_window_title) = (
                     item.pid,
                     item.name.clone(),
@@ -66,44 +85,57 @@ fn main() {
                         .unwrap_or(String::new()),
                 );
 
-                if item_window.is_some() {
-                    program_status = ProgramStatus::StatusRunning;
+                let next_program_status = if item_window.is_some() {
+                    ProgramStatus::StatusRunning
                 } else {
                     match program_status {
                         ProgramStatus::StatusRunning => {
-                            program_status = ProgramStatus::StatusDumb;
+                            ProgramStatus::StatusDumb
                         }
                         ProgramStatus::StatusDumb => {
-                            #[cfg(debug_assertions)]
-                            println!("I would kill the process {}", pid);
-                            #[cfg(not(debug_assertions))]
-                            item.kill(None).ok();
-                            program_status = ProgramStatus::StatusClosed;
+                            if opts.verbose > 0 && !opts.dry_run {
+                                println!("Killing the process {}", pid);
+                            }
+                            else if opts.verbose > 0 && opts.dry_run {
+                                println!("[DRY RUN] Would kill the process {}", pid);
+                            }
+
+                            if !opts.dry_run {
+                                item.kill(None).ok();
+                            }
+                            ProgramStatus::StatusClosed
                         }
                         ProgramStatus::StatusClosed => {
                             //panic!("This should never happen!");
+                            ProgramStatus::StatusRunning
                         }
                     }
+                };
+
+                if opts.verbose > 0 {
+                    println!(
+                        "ITEM: {} ({}), has_window? {}, with title {}. Program status is {:?} -> {:?}",
+                        item_name,
+                        pid,
+                        item_window.is_some(),
+                        item_window_title,
+                        program_status,
+                        next_program_status,
+                    );
                 }
 
-                #[cfg(debug_assertions)]
-                println!(
-                    "ITEM: {} ({}), has_window? {}, with title {}. Program status is {:?}",
-                    item_name,
-                    pid,
-                    item_window.is_some(),
-                    item_window_title,
-                    program_status
-                );
+                program_status = next_program_status;
             });
         if !inside_loop {
             program_status = ProgramStatus::StatusClosed;
         }
 
-        if debug {
-            thread::sleep(time::Duration::from_secs(1));
+        let default_seconds = if opts.verbose > 0 {
+            1
         } else {
-            thread::sleep(time::Duration::from_secs(120));
-        }
+            120
+        };
+
+        thread::sleep(time::Duration::from_secs(opts.loop_seconds.unwrap_or(default_seconds)));
     }
 }
